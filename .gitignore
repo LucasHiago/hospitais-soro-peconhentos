@@ -1,0 +1,5 @@
+data/cnes_cache/
+data/txt/
+parsed.json
+__pycache__/
+.DS_Store

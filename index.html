@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hospitais com Soro Antipeçonhento no Brasil</title>
+<meta name="description" content="Mapa interativo dos hospitais de referência do SUS para atendimento a acidentes com animais peçonhentos (soro antiveneno), por estado.">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<style>
+  :root{ --bg:#0f1720; --panel:#16212e; --line:#26323f; --txt:#e7edf3; --mut:#9fb0c0; --accent:#2ec28a; --accent2:#39a0ed; }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--txt);background:var(--bg)}
+  #app{display:flex;flex-direction:column;height:100%}
+  header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+  header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
+  header h1 .ico{color:var(--accent)}
+  .count{font-size:12px;color:var(--mut)}
+  .count b{color:var(--txt)}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto;align-items:center}
+  select,input{background:#0d1620;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;outline:none}
+  input{min-width:190px}
+  select:focus,input:focus{border-color:var(--accent2)}
+  #map{flex:1;min-height:0}
+  .leaflet-popup-content-wrapper{background:#101a24;color:var(--txt);border-radius:12px}
+  .leaflet-popup-tip{background:#101a24}
+  .leaflet-popup-content{margin:12px 14px;line-height:1.4;font-size:13px;max-width:280px}
+  .pop-name{font-weight:700;font-size:14px;margin-bottom:2px}
+  .pop-loc{color:var(--mut);font-size:12px;margin-bottom:8px}
+  .pop-row{margin:4px 0;font-size:12.5px}
+  .pop-row .lbl{color:var(--mut)}
+  .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .chip{background:#13362a;color:#7fe0b4;border:1px solid #1e5a44;border-radius:999px;padding:2px 8px;font-size:11px}
+  .badge-aprox{display:inline-block;background:#3a2a12;color:#f0c277;border:1px solid #6b4d1e;border-radius:6px;padding:1px 6px;font-size:10.5px;margin-top:6px}
+  a{color:var(--accent2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  footer{padding:6px 16px;background:var(--panel);border-top:1px solid var(--line);font-size:11px;color:var(--mut);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent);margin-right:5px;vertical-align:middle}
+  @media(max-width:680px){.controls{width:100%;margin-left:0}input{flex:1;min-width:0}header h1{width:100%}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1><span class="ico">⚕</span> Hospitais de referência — soro antipeçonhento</h1>
+    <span class="count" id="count">carregando…</span>
+    <div class="controls">
+      <select id="uf"><option value="">Todos os estados</option></select>
+      <select id="soro"><option value="">Todos os soros</option></select>
+      <input id="q" type="search" placeholder="Buscar hospital ou município…">
+    </div>
+  </header>
+  <div id="map"></div>
+  <footer>
+    <span><span class="legend-dot"></span><b id="fcount">0</b>&nbsp;unidades exibidas</span>
+    <span>Fonte: <a href="https://www.gov.br/saude/pt-br/assuntos/saude-de-a-a-z/a/animais-peconhentos/hospitais-de-referencia" target="_blank" rel="noopener">Ministério da Saúde</a> · coordenadas: <a href="https://cnes.datasus.gov.br/" target="_blank" rel="noopener">CNES/DATASUS</a></span>
+    <span>⚠ Em caso de acidente ligue <b>192 (SAMU)</b> ou <b>0800-722-6001</b> (Disque-Intoxicação).</span>
+  </footer>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+const UFNAME={AC:'Acre',AL:'Alagoas',AP:'Amapá',AM:'Amazonas',BA:'Bahia',CE:'Ceará',DF:'Distrito Federal',ES:'Espírito Santo',GO:'Goiás',MA:'Maranhão',MT:'Mato Grosso',MS:'Mato Grosso do Sul',MG:'Minas Gerais',PA:'Pará',PB:'Paraíba',PR:'Paraná',PE:'Pernambuco',PI:'Piauí',RJ:'Rio de Janeiro',RN:'Rio Grande do Norte',RS:'Rio Grande do Sul',RO:'Rondônia',RR:'Roraima',SC:'Santa Catarina',SP:'São Paulo',SE:'Sergipe',TO:'Tocantins'};
+const titleCase=s=>(s||'').toLowerCase().replace(/(^|[\s\/\-])([a-zà-ú])/g,(m,a,b)=>a+b.toUpperCase());
+const fmtTel=t=>!t?'':t.replace(/\s+/g,' ').trim();
+
+const map=L.map('map',{zoomControl:true,preferCanvas:true}).setView([-14.6,-52],4);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:19,subdomains:'abcd'}).addTo(map);
+
+const cluster=L.markerClusterGroup({maxClusterRadius:50,chunkedLoading:true,spiderfyOnMaxZoom:true});
+map.addLayer(cluster);
+
+let DATA=[];
+const qEl=document.getElementById('q'), ufEl=document.getElementById('uf'), soroEl=document.getElementById('soro');
+
+function popup(h){
+  const nome=titleCase(h.nome);
+  let html=`<div class="pop-name">${nome||'Unidade de saúde'}</div>`;
+  html+=`<div class="pop-loc">${titleCase(h.municipio)} — ${h.uf} (${UFNAME[h.uf]||''})</div>`;
+  if(h.endereco) html+=`<div class="pop-row"><span class="lbl">Endereço:</span> ${titleCase(h.endereco)}${h.cep?` · CEP ${String(h.cep).replace(/(\d{5})(\d{3})/,'$1-$2')}`:''}</div>`;
+  if(h.telefone) html+=`<div class="pop-row"><span class="lbl">Telefone:</span> ${fmtTel(h.telefone)}</div>`;
+  if(h.antivenenos&&h.antivenenos.length){
+    html+=`<div class="pop-row"><span class="lbl">Soros disponíveis:</span></div><div class="chips">`+
+      h.antivenenos.map(s=>`<span class="chip">${s}</span>`).join('')+`</div>`;
+  }
+  html+=`<div class="pop-row" style="margin-top:8px"><span class="lbl">CNES:</span> <a href="https://cnes.datasus.gov.br/pages/estabelecimentos/ficha/identificacao/${String(h.cnes).padStart(7,'0')}" target="_blank" rel="noopener">${h.cnes}</a></div>`;
+  if(h.aprox) html+=`<div class="badge-aprox">📍 localização aproximada (centro do município)</div>`;
+  return html;
+}
+
+function render(){
+  const q=qEl.value.trim().toLowerCase(), uf=ufEl.value, soro=soroEl.value;
+  cluster.clearLayers();
+  const ms=[];
+  for(const h of DATA){
+    if(uf && h.uf!==uf) continue;
+    if(soro && !(h.antivenenos||[]).includes(soro)) continue;
+    if(q){
+      const hay=((h.nome||'')+' '+(h.municipio||'')).toLowerCase();
+      if(!hay.includes(q)) continue;
+    }
+    const m=L.circleMarker([h.lat,h.lon],{radius:6,weight:1.5,
+      color:'#1b6b4a',fillColor:h.aprox?'#f0b34d':'#2ec28a',fillOpacity:.9});
+    m.bindPopup(()=>popup(h),{maxWidth:300});
+    ms.push(m);
+  }
+  cluster.addLayers(ms);
+  document.getElementById('fcount').textContent=ms.length;
+}
+
+fetch('hospitais.json').then(r=>r.json()).then(d=>{
+  DATA=d;
+  document.getElementById('count').innerHTML=`<b>${d.length}</b> unidades · ${new Set(d.map(h=>h.uf+h.municipio)).size} municípios · 27 estados`;
+  // populate UF select
+  Object.keys(UFNAME).sort((a,b)=>UFNAME[a].localeCompare(UFNAME[b])).forEach(u=>{
+    const o=document.createElement('option');o.value=u;o.textContent=UFNAME[u]+' ('+u+')';ufEl.appendChild(o);});
+  // populate serum select
+  const sset=new Set(); d.forEach(h=>(h.antivenenos||[]).forEach(s=>sset.add(s)));
+  [...sset].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='Soro '+s;soroEl.appendChild(o);});
+  render();
+}).catch(e=>{document.getElementById('count').textContent='erro ao carregar dados';console.error(e);});
+
+let t; qEl.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(render,180);});
+ufEl.addEventListener('change',()=>{render(); if(ufEl.value){/* zoom handled by fit below */}});
+soroEl.addEventListener('change',render);
+ufEl.addEventListener('change',()=>{
+  if(ufEl.value){const pts=DATA.filter(h=>h.uf===ufEl.value).map(h=>[h.lat,h.lon]); if(pts.length) map.fitBounds(pts,{padding:[40,40],maxZoom:9});}
+  else map.setView([-14.6,-52],4);
+});
+</script>
+</body>
+</html>
