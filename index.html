@@ -2,9 +2,13 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Hospitais com Soro Antipeçonhento no Brasil</title>
 <meta name="description" content="Mapa interativo dos hospitais de referência do SUS para atendimento a acidentes com animais peçonhentos (soro antiveneno). Busque sua cidade e veja os mais próximos.">
+<meta name="theme-color" content="#16212e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -12,13 +16,15 @@
   :root{ --bg:#0f1720; --panel:#16212e; --line:#26323f; --txt:#e7edf3; --mut:#9fb0c0; --accent:#2ec28a; --accent2:#39a0ed; }
   *{box-sizing:border-box}
   html,body{height:100%;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--txt);background:var(--bg)}
-  #app{display:flex;flex-direction:column;height:100%}
+  #app{display:flex;flex-direction:column;height:100vh;height:100dvh}
   header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
   header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
   header h1 .ico{color:var(--accent)}
   .count{font-size:12px;color:var(--mut)}
   .count b{color:var(--txt)}
   .controls{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto;align-items:center}
+  .adv{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .filt-toggle{display:none}
   select,input,button{background:#0d1620;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;outline:none}
   input{min-width:170px}
   select:focus,input:focus{border-color:var(--accent2)}
@@ -31,7 +37,7 @@
   #sug div:last-child{border-bottom:0}
   #sug div:hover,#sug div.active{background:#16344a}
   #sug .uf{color:var(--mut);font-size:11px;margin-left:6px}
-  #map{flex:1;min-height:0}
+  #map{flex:1;min-height:0;position:relative}
   /* nearby results panel */
   #nearby{position:absolute;z-index:1100;top:12px;left:12px;width:330px;max-width:calc(100vw - 24px);max-height:calc(100% - 24px);background:rgba(16,26,36,.97);border:1px solid var(--line);border-radius:14px;display:none;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.5);backdrop-filter:blur(3px)}
   #nearby .nb-head{padding:11px 13px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:8px}
@@ -65,15 +71,29 @@
   @media(max-width:680px){
     header{padding:8px 12px;gap:8px 10px}
     header h1{width:100%;font-size:15px}
+    .count{width:100%;margin-top:-2px}
     .controls{width:100%;margin-left:0;gap:8px}
+    /* alvos de toque maiores + fonte 16px evita o zoom automatico do iOS ao focar */
+    select,input,button{font-size:16px;padding:10px 12px;min-height:44px}
     .city-wrap{flex:1 1 100%}
     #cidade{min-width:0;width:100%}
+    #geo{flex:1 1 calc(50% - 4px);justify-content:center}
+    .filt-toggle{display:inline-flex;flex:1 1 calc(50% - 4px);justify-content:center}
+    .adv{display:none;width:100%;gap:8px;margin:0}
+    .adv.open{display:flex;flex-wrap:wrap}
     #uf,#soro{flex:1 1 calc(50% - 4px);min-width:0}
-    #geo{flex:1 1 100%}
     #q{flex:1 1 100%;min-width:0}
     input{min-width:0}
-    #nearby{width:auto;left:8px;right:8px;top:8px;max-width:calc(100vw - 16px);max-height:calc(100% - 16px)}
+    #sug div{padding:11px 12px;font-size:15px}
+    /* painel "mais proximos" vira bottom-sheet ancorado na area do mapa */
+    #nearby{left:0;right:0;bottom:0;top:auto;width:auto;max-width:none;max-height:58%;
+      border-radius:16px 16px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom)}
+    #nearby::before{content:"";display:block;flex:0 0 auto;width:38px;height:4px;
+      border-radius:2px;background:#3a4a5a;margin:8px auto 2px}
+    .nb-item{padding:12px 10px}
+    #nearby .nb-close{font-size:24px;padding:0 6px}
     .leaflet-popup-content{max-width:calc(100vw - 70px)}
+    footer{padding:6px 10px;gap:5px 12px;font-size:10.5px}
   }
 </style>
 </head>
@@ -88,9 +108,12 @@
         <div id="sug"></div>
       </div>
       <button id="geo" title="Usar minha localização">📡 Perto de mim</button>
-      <select id="uf"><option value="">Todos os estados</option></select>
-      <select id="soro"><option value="">Todos os soros</option></select>
-      <input id="q" type="search" placeholder="Buscar hospital…">
+      <button id="filt" class="filt-toggle" aria-expanded="false" aria-controls="adv">⚙ Filtros</button>
+      <div class="adv" id="adv">
+        <select id="uf"><option value="">Todos os estados</option></select>
+        <select id="soro"><option value="">Todos os soros</option></select>
+        <input id="q" type="search" placeholder="Buscar hospital…">
+      </div>
     </div>
   </header>
   <div id="map">
@@ -141,6 +164,14 @@ L.DomEvent.disableClickPropagation(nbEl);
 L.DomEvent.disableScrollPropagation(sugEl);
 L.DomEvent.disableClickPropagation(sugEl);
 
+const isMobile=()=>matchMedia('(max-width:680px)').matches;
+// botao "Filtros": recolhe UF/soro/busca no mobile para liberar tela
+const filtEl=document.getElementById('filt'), advEl=document.getElementById('adv');
+filtEl.onclick=()=>{const open=advEl.classList.toggle('open');filtEl.setAttribute('aria-expanded',open);};
+// recalcula o tamanho do mapa ao girar/redimensionar (barras do navegador mobile)
+let rsT; addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>map.invalidateSize(),200);});
+addEventListener('orientationchange',()=>setTimeout(()=>map.invalidateSize(),300));
+
 function passesFilter(h){
   if(ufEl.value && h.uf!==ufEl.value) return false;
   if(soroEl.value && !(h.antivenenos||[]).includes(soroEl.value)) return false;
@@ -172,7 +203,9 @@ function render(){
     if(!passesFilter(h)) continue;
     const m=L.circleMarker([h.lat,h.lon],{radius:6,weight:1.5,
       color:'#1b6b4a',fillColor:h.aprox?'#f0b34d':'#2ec28a',fillOpacity:.9});
-    m.bindPopup(()=>popup(h),{maxWidth:300});
+    m.bindPopup(()=>popup(h),{maxWidth:300,
+      autoPanPaddingTopLeft:[16,76],
+      autoPanPaddingBottomRight:[16, isMobile()?Math.round(innerHeight*0.6)+20:24]});
     markerByCnes[h.cnes]=m; ms.push(m);
   }
   cluster.addLayers(ms);
@@ -210,7 +243,12 @@ function computeNearby(){
   nbEl.style.display='flex';
   // enquadra cidade + 5 mais próximos
   const pts=[[origin.lat,origin.lon],...list.slice(0,5).map(it=>[it.h.lat,it.h.lon])];
-  if(pts.length>1) map.fitBounds(pts,{padding:[60,60],maxZoom:11});
+  if(pts.length>1){
+    const fit=isMobile()
+      ? {paddingTopLeft:[28,28],paddingBottomRight:[28,Math.round(innerHeight*0.58)+24],maxZoom:11}
+      : {padding:[60,60],maxZoom:11};
+    map.fitBounds(pts,fit);
+  }
   else map.setView([origin.lat,origin.lon],11);
 }
 
