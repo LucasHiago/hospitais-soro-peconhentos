@@ -48,10 +48,18 @@
   .nb-item{padding:9px 10px;border-radius:9px;cursor:pointer;display:flex;gap:9px;align-items:flex-start}
   .nb-item:hover{background:#16344a}
   .nb-rank{background:#13362a;color:#7fe0b4;border:1px solid #1e5a44;border-radius:7px;min-width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:0 0 auto;margin-top:1px}
-  .nb-km{margin-left:auto;color:var(--accent);font-weight:700;font-size:12.5px;white-space:nowrap;flex:0 0 auto}
-  .nb-name{font-size:12.7px;font-weight:600;line-height:1.25}
-  .nb-loc{color:var(--mut);font-size:11px;margin-top:1px}
+  .nb-km{margin-left:auto;color:var(--accent);font-weight:800;font-size:13px;white-space:nowrap;flex:0 0 auto;background:#0e2a20;border:1px solid #1e5a44;border-radius:7px;padding:2px 7px}
+  .nb-name{font-size:13.5px;font-weight:700;line-height:1.25}
+  .nb-loc{color:var(--mut);font-size:11.5px;margin-top:1px}
   .nb-soros{color:#7fb7d8;font-size:10.5px;margin-top:2px}
+  .nb-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .nb-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:8px;padding:8px 11px;font-size:12.5px;font-weight:700;border:1px solid transparent;text-align:center}
+  .nb-btn:hover{text-decoration:none;filter:brightness(1.08)}
+  .nb-call{background:#13362a;color:#7fe0b4;border-color:#1e5a44}
+  .nb-route{background:var(--accent2);color:#05223a}
+  .nb-item.active{background:#15324a;box-shadow:inset 3px 0 0 var(--accent2)}
+  #nearby .nb-min{display:none;background:none;border:none;color:var(--mut);font-size:22px;line-height:1;padding:0 4px;cursor:pointer}
+  .nb-reopen{display:none;position:absolute;z-index:1101;left:10px;bottom:10px;background:var(--accent);color:#06231a;border:none;border-radius:999px;padding:11px 16px;font-weight:800;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,.45);cursor:pointer;align-items:center;gap:6px}
   .leaflet-popup-content-wrapper{background:#101a24;color:var(--txt);border-radius:12px}
   .leaflet-popup-tip{background:#101a24}
   .leaflet-popup-content{margin:12px 14px;line-height:1.4;font-size:13px;max-width:280px}
@@ -60,6 +68,10 @@
   .pop-row{margin:4px 0;font-size:12.5px}
   .pop-row .lbl{color:var(--mut)}
   .pop-dist{display:inline-block;background:#10233a;color:#7fc4f0;border:1px solid #244a6b;border-radius:6px;padding:1px 7px;font-size:11.5px;margin-top:4px}
+  .pop-tel{color:var(--accent);font-weight:800;white-space:nowrap}
+  .pop-tel:hover{text-decoration:none;filter:brightness(1.1)}
+  .pop-route{display:block;text-align:center;margin-top:10px;background:var(--accent2);color:#05223a;font-weight:800;border-radius:9px;padding:11px;font-size:14px}
+  .pop-route:hover{text-decoration:none;filter:brightness(1.08)}
   .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
   .chip{background:#13362a;color:#7fe0b4;border:1px solid #1e5a44;border-radius:999px;padding:2px 8px;font-size:11px}
   .badge-aprox{display:inline-block;background:#3a2a12;color:#f0c277;border:1px solid #6b4d1e;border-radius:6px;padding:1px 6px;font-size:10.5px;margin-top:6px}
@@ -85,16 +97,21 @@
     #q{flex:1 1 100%;min-width:0}
     input{min-width:0}
     #sug div{padding:11px 12px;font-size:15px}
-    /* painel "mais proximos" vira bottom-sheet ancorado na area do mapa */
-    #nearby{left:0;right:0;bottom:0;top:auto;width:auto;max-width:none;max-height:58%;
-      border-radius:16px 16px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom)}
-    #nearby::before{content:"";display:block;flex:0 0 auto;width:38px;height:4px;
-      border-radius:2px;background:#3a4a5a;margin:8px auto 2px}
+    /* painel "mais proximos": drawer lateral (esquerda) que pode recolher p/ ver o mapa */
+    #nearby{top:8px;left:8px;bottom:8px;right:auto;width:min(86vw,330px);max-width:none;max-height:none;
+      border-radius:14px;transition:transform .22s ease;padding-bottom:env(safe-area-inset-bottom)}
+    #nearby.collapsed{transform:translateX(-112%)}
+    #nearby .nb-min{display:inline-flex;margin-left:auto}
+    #nearby .nb-close{font-size:24px;padding:0 4px}
     .nb-item{padding:12px 10px}
-    #nearby .nb-close{font-size:24px;padding:0 6px}
+    .nb-name{font-size:15px}
+    .nb-actions{margin-top:9px}
+    .nb-btn{flex:1 1 auto;justify-content:center;padding:11px 12px;font-size:13.5px;min-height:44px}
+    .nb-reopen.show{display:inline-flex}
     .leaflet-popup-content{max-width:calc(100vw - 70px)}
     footer{padding:6px 10px;gap:5px 12px;font-size:10.5px}
   }
+  @media(min-width:681px){.nb-reopen{display:none!important}}
 </style>
 </head>
 <body>
@@ -123,10 +140,12 @@
           <div class="nb-title" id="nbTitle"></div>
           <div class="nb-sub" id="nbSub"></div>
         </div>
+        <button class="nb-min" id="nbMin" title="Recolher para ver o mapa">‹</button>
         <button class="nb-close" id="nbClose" title="Fechar">×</button>
       </div>
       <div id="nbList"></div>
     </div>
+    <button id="nbReopen" class="nb-reopen" title="Mostrar lista de hospitais">📋 Lista</button>
   </div>
   <footer>
     <span><span class="legend-dot"></span><b id="fcount">0</b>&nbsp;unidades exibidas</span>
@@ -171,6 +190,14 @@ filtEl.onclick=()=>{const open=advEl.classList.toggle('open');filtEl.setAttribut
 // recalcula o tamanho do mapa ao girar/redimensionar (barras do navegador mobile)
 let rsT; addEventListener('resize',()=>{clearTimeout(rsT);rsT=setTimeout(()=>map.invalidateSize(),200);});
 addEventListener('orientationchange',()=>setTimeout(()=>map.invalidateSize(),300));
+// painel lateral: recolher/expandir para alternar entre a lista e o mapa (mobile)
+const nbMin=document.getElementById('nbMin'), nbReopen=document.getElementById('nbReopen');
+function setCollapsed(c){
+  nbEl.classList.toggle('collapsed',c);
+  nbReopen.classList.toggle('show', c && nbEl.style.display==='flex');
+}
+nbMin.onclick=()=>setCollapsed(true);
+nbReopen.onclick=()=>setCollapsed(false);
 
 function passesFilter(h){
   if(ufEl.value && h.uf!==ufEl.value) return false;
@@ -187,11 +214,13 @@ function popup(h){
   if(origin){const dk=haversine(origin.lat,origin.lon,h.lat,h.lon);
     html+=`<div class="pop-dist">📏 ${fmtKm(dk)} de ${origin.name}</div>`;}
   if(h.endereco) html+=`<div class="pop-row"><span class="lbl">Endereço:</span> ${titleCase(h.endereco)}${h.cep?` · CEP ${String(h.cep).replace(/(\d{5})(\d{3})/,'$1-$2')}`:''}</div>`;
-  if(h.telefone) html+=`<div class="pop-row"><span class="lbl">Telefone:</span> ${fmtTel(h.telefone)}</div>`;
+  if(h.telefone){const td=fmtTel(h.telefone).split('/')[0].replace(/[^\d]/g,'');
+    html+=`<div class="pop-row"><span class="lbl">Telefone:</span> ${td?`<a class="pop-tel" href="tel:${td}">📞 ${fmtTel(h.telefone)}</a>`:fmtTel(h.telefone)}</div>`;}
   if(h.antivenenos&&h.antivenenos.length){
     html+=`<div class="pop-row"><span class="lbl">Soros disponíveis:</span></div><div class="chips">`+
       h.antivenenos.map(s=>`<span class="chip">${s}</span>`).join('')+`</div>`;}
-  html+=`<div class="pop-row" style="margin-top:8px"><span class="lbl">CNES:</span> <a href="https://cnes.datasus.gov.br/pages/estabelecimentos/ficha/identificacao/${String(h.cnes).padStart(7,'0')}" target="_blank" rel="noopener">${h.cnes}</a> · <a href="https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lon}" target="_blank" rel="noopener">rota ↗</a></div>`;
+  html+=`<div class="pop-row" style="margin-top:8px"><span class="lbl">CNES:</span> <a href="https://cnes.datasus.gov.br/pages/estabelecimentos/ficha/identificacao/${String(h.cnes).padStart(7,'0')}" target="_blank" rel="noopener">${h.cnes}</a></div>`;
+  html+=`<a class="pop-route" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lon}">🧭 Traçar rota até aqui</a>`;
   if(h.aprox) html+=`<div class="badge-aprox">📍 localização aproximada (centro do município)</div>`;
   return html;
 }
@@ -203,9 +232,7 @@ function render(){
     if(!passesFilter(h)) continue;
     const m=L.circleMarker([h.lat,h.lon],{radius:6,weight:1.5,
       color:'#1b6b4a',fillColor:h.aprox?'#f0b34d':'#2ec28a',fillOpacity:.9});
-    m.bindPopup(()=>popup(h),{maxWidth:300,
-      autoPanPaddingTopLeft:[16,76],
-      autoPanPaddingBottomRight:[16, isMobile()?Math.round(innerHeight*0.6)+20:24]});
+    m.bindPopup(()=>popup(h),{maxWidth:300,autoPanPaddingTopLeft:[16,76],autoPanPaddingBottomRight:[16,24]});
     markerByCnes[h.cnes]=m; ms.push(m);
   }
   cluster.addLayers(ms);
@@ -230,22 +257,35 @@ function computeNearby(){
   const box=document.getElementById('nbList'); box.innerHTML='';
   list.forEach((it,i)=>{
     const h=it.h, el=document.createElement('div'); el.className='nb-item';
+    const tel=h.telefone?fmtTel(h.telefone):'', td=tel.split('/')[0].replace(/[^\d]/g,'');
+    const route=`https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lon}`;
     el.innerHTML=`<div class="nb-rank">${i+1}</div>
-      <div style="min-width:0;flex:1">
+      <div class="nb-body" style="min-width:0;flex:1">
         <div class="nb-name">${titleCase(h.nome)||'Unidade de saúde'}</div>
         <div class="nb-loc">${titleCase(h.municipio)} — ${h.uf}</div>
         ${h.antivenenos&&h.antivenenos.length?`<div class="nb-soros">💉 ${h.antivenenos.join(', ')}</div>`:''}
+        <div class="nb-actions">
+          ${td?`<a class="nb-btn nb-call" href="tel:${td}">📞 ${tel}</a>`:''}
+          <a class="nb-btn nb-route" target="_blank" rel="noopener" href="${route}">🧭 Rota</a>
+        </div>
       </div>
       <div class="nb-km">${fmtKm(it.d)}</div>`;
-    el.onclick=()=>openHospital(h);
+    el.querySelectorAll('.nb-btn').forEach(b=>b.addEventListener('click',e=>e.stopPropagation()));
+    el.addEventListener('click',()=>{
+      [...box.children].forEach(c=>c.classList.remove('active'));
+      el.classList.add('active');
+      openHospital(h);
+      if(isMobile()) setCollapsed(true);
+    });
     box.appendChild(el);
   });
-  nbEl.style.display='flex';
-  // enquadra cidade + 5 mais próximos
+  nbEl.style.display='flex'; setCollapsed(false);
+  // enquadra cidade + 5 mais próximos (no mobile, deslocados para a direita do drawer)
   const pts=[[origin.lat,origin.lon],...list.slice(0,5).map(it=>[it.h.lat,it.h.lon])];
   if(pts.length>1){
+    const panelW=Math.min(innerWidth*0.86,330);
     const fit=isMobile()
-      ? {paddingTopLeft:[28,28],paddingBottomRight:[28,Math.round(innerHeight*0.58)+24],maxZoom:11}
+      ? {paddingTopLeft:[panelW+24,76],paddingBottomRight:[24,24],maxZoom:11}
       : {padding:[60,60],maxZoom:11};
     map.fitBounds(pts,fit);
   }
@@ -297,7 +337,8 @@ cityEl.addEventListener('keydown',e=>{
 document.addEventListener('click',e=>{if(!e.target.closest('.city-wrap'))sugEl.style.display='none';});
 
 document.getElementById('nbClose').onclick=()=>{
-  nbEl.style.display='none'; origin=null; cityEl.value='';
+  nbEl.style.display='none'; nbEl.classList.remove('collapsed'); nbReopen.classList.remove('show');
+  origin=null; cityEl.value='';
   if(originMarker){map.removeLayer(originMarker);originMarker=null;}
   render();
 };
