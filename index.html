@@ -62,7 +62,19 @@
   .city-pin{filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
   footer{padding:6px 16px;background:var(--panel);border-top:1px solid var(--line);font-size:11px;color:var(--mut);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
   .legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent);margin-right:5px;vertical-align:middle}
-  @media(max-width:680px){.controls{width:100%;margin-left:0}header h1{width:100%}#nearby{width:auto;right:12px}}
+  @media(max-width:680px){
+    header{padding:8px 12px;gap:8px 10px}
+    header h1{width:100%;font-size:15px}
+    .controls{width:100%;margin-left:0;gap:8px}
+    .city-wrap{flex:1 1 100%}
+    #cidade{min-width:0;width:100%}
+    #uf,#soro{flex:1 1 calc(50% - 4px);min-width:0}
+    #geo{flex:1 1 100%}
+    #q{flex:1 1 100%;min-width:0}
+    input{min-width:0}
+    #nearby{width:auto;left:8px;right:8px;top:8px;max-width:calc(100vw - 16px);max-height:calc(100% - 16px)}
+    .leaflet-popup-content{max-width:calc(100vw - 70px)}
+  }
 </style>
 </head>
 <body>
@@ -123,6 +135,11 @@ let DATA=[], CIDADES=[], origin=null, originMarker=null, markerByCnes={};
 const qEl=document.getElementById('q'), ufEl=document.getElementById('uf'), soroEl=document.getElementById('soro');
 const cityEl=document.getElementById('cidade'), sugEl=document.getElementById('sug');
 const nbEl=document.getElementById('nearby');
+// impede que rolar/arrastar dentro do painel ou das sugestões mova o mapa por baixo
+L.DomEvent.disableScrollPropagation(nbEl);
+L.DomEvent.disableClickPropagation(nbEl);
+L.DomEvent.disableScrollPropagation(sugEl);
+L.DomEvent.disableClickPropagation(sugEl);
 
 function passesFilter(h){
   if(ufEl.value && h.uf!==ufEl.value) return false;
@@ -227,7 +244,7 @@ function showSug(){
 }
 function pickSug(i){
   const c=sugItems[i]; if(!c) return;
-  cityEl.value=c.n+' - '+c.uf; sugEl.style.display='none';
+  cityEl.value=c.n+' - '+c.uf; sugEl.style.display='none'; cityEl.blur();
   setOrigin({name:c.n+' - '+c.uf, lat:c.lat, lon:c.lon});
 }
 cityEl.addEventListener('input',showSug);
@@ -253,7 +270,7 @@ document.getElementById('geo').onclick=()=>{
   },()=>alert('Não foi possível obter sua localização. Verifique as permissões.'),{enableHighAccuracy:true,timeout:8000});
 };
 
-[ufEl,soroEl].forEach(el=>el.addEventListener('change',render));
+[ufEl,soroEl].forEach(el=>el.addEventListener('change',()=>{render();el.blur();}));
 let t; qEl.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(render,180);});
 ufEl.addEventListener('change',()=>{ // mantém comportamento de zoom só quando não há cidade ativa
   if(origin) return;
