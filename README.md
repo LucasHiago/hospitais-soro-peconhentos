@@ -21,6 +21,12 @@ municípios dos 27 estados**, mostrando para cada uma:
   fonêutrico, escorpiônico, aracnídico, antilonômico)
 - Código CNES (com link para a ficha no DATASUS)
 
+**📍 Busca por proximidade:** digite a sua cidade (ou use "Perto de mim") e o mapa
+lista os **hospitais mais próximos**, ordenados pela distância em km — inclusive
+em municípios vizinhos/estados vizinhos. Combina com o filtro de soro (ex.: "o
+hospital mais próximo que tem soro **anticrotálico**"). Também dá para compartilhar
+um link direto: `?cidade=Manaus`.
+
 Filtros por **estado**, por **tipo de soro** e busca por nome/município.
 
 > ⚠️ **Em caso de acidente, não perca tempo:** ligue **192 (SAMU)** ou para o
@@ -47,7 +53,9 @@ scripts/
   download.sh   # baixa os 27 PDFs de hospitais de referência do gov.br
   parse.py      # extrai os códigos CNES + soros de cada PDF (Piauí via OCR visual)
   enrich.py     # consulta a API do CNES p/ nome, endereço, telefone e coordenadas
+  build_cidades.py # gera cidades.json (todas as cidades do BR p/ a busca por proximidade)
 hospitais.json  # dataset final consumido pelo mapa
+cidades.json    # cidades do Brasil + coordenadas (busca "perto de mim")
 index.html      # mapa Leaflet (sem build, estático)
 ```
 

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hospitais com Soro Antipeçonhento no Brasil</title>
-<meta name="description" content="Mapa interativo dos hospitais de referência do SUS para atendimento a acidentes com animais peçonhentos (soro antiveneno), por estado.">
+<meta name="description" content="Mapa interativo dos hospitais de referência do SUS para atendimento a acidentes com animais peçonhentos (soro antiveneno). Busque sua cidade e veja os mais próximos.">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -13,16 +13,39 @@
   *{box-sizing:border-box}
   html,body{height:100%;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--txt);background:var(--bg)}
   #app{display:flex;flex-direction:column;height:100%}
-  header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+  header{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
   header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
   header h1 .ico{color:var(--accent)}
   .count{font-size:12px;color:var(--mut)}
   .count b{color:var(--txt)}
   .controls{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto;align-items:center}
-  select,input{background:#0d1620;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;outline:none}
-  input{min-width:190px}
+  select,input,button{background:#0d1620;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;outline:none}
+  input{min-width:170px}
   select:focus,input:focus{border-color:var(--accent2)}
+  button{cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+  button:hover{border-color:var(--accent2)}
+  .city-wrap{position:relative}
+  #cidade{min-width:200px;border-color:#2a4a63}
+  #sug{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:1200;background:#0d1620;border:1px solid var(--line);border-radius:10px;max-height:280px;overflow:auto;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  #sug div{padding:8px 11px;font-size:13px;cursor:pointer;border-bottom:1px solid #1a2632}
+  #sug div:last-child{border-bottom:0}
+  #sug div:hover,#sug div.active{background:#16344a}
+  #sug .uf{color:var(--mut);font-size:11px;margin-left:6px}
   #map{flex:1;min-height:0}
+  /* nearby results panel */
+  #nearby{position:absolute;z-index:1100;top:12px;left:12px;width:330px;max-width:calc(100vw - 24px);max-height:calc(100% - 24px);background:rgba(16,26,36,.97);border:1px solid var(--line);border-radius:14px;display:none;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.5);backdrop-filter:blur(3px)}
+  #nearby .nb-head{padding:11px 13px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:8px}
+  #nearby .nb-title{font-weight:700;font-size:13.5px;line-height:1.3}
+  #nearby .nb-sub{color:var(--mut);font-size:11.5px;margin-top:2px}
+  #nearby .nb-close{margin-left:auto;background:none;border:none;color:var(--mut);font-size:18px;line-height:1;padding:0 2px;cursor:pointer}
+  #nbList{overflow:auto;padding:4px}
+  .nb-item{padding:9px 10px;border-radius:9px;cursor:pointer;display:flex;gap:9px;align-items:flex-start}
+  .nb-item:hover{background:#16344a}
+  .nb-rank{background:#13362a;color:#7fe0b4;border:1px solid #1e5a44;border-radius:7px;min-width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:0 0 auto;margin-top:1px}
+  .nb-km{margin-left:auto;color:var(--accent);font-weight:700;font-size:12.5px;white-space:nowrap;flex:0 0 auto}
+  .nb-name{font-size:12.7px;font-weight:600;line-height:1.25}
+  .nb-loc{color:var(--mut);font-size:11px;margin-top:1px}
+  .nb-soros{color:#7fb7d8;font-size:10.5px;margin-top:2px}
   .leaflet-popup-content-wrapper{background:#101a24;color:var(--txt);border-radius:12px}
   .leaflet-popup-tip{background:#101a24}
   .leaflet-popup-content{margin:12px 14px;line-height:1.4;font-size:13px;max-width:280px}
@@ -30,14 +53,16 @@
   .pop-loc{color:var(--mut);font-size:12px;margin-bottom:8px}
   .pop-row{margin:4px 0;font-size:12.5px}
   .pop-row .lbl{color:var(--mut)}
+  .pop-dist{display:inline-block;background:#10233a;color:#7fc4f0;border:1px solid #244a6b;border-radius:6px;padding:1px 7px;font-size:11.5px;margin-top:4px}
   .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
   .chip{background:#13362a;color:#7fe0b4;border:1px solid #1e5a44;border-radius:999px;padding:2px 8px;font-size:11px}
   .badge-aprox{display:inline-block;background:#3a2a12;color:#f0c277;border:1px solid #6b4d1e;border-radius:6px;padding:1px 6px;font-size:10.5px;margin-top:6px}
   a{color:var(--accent2);text-decoration:none}
   a:hover{text-decoration:underline}
+  .city-pin{filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
   footer{padding:6px 16px;background:var(--panel);border-top:1px solid var(--line);font-size:11px;color:var(--mut);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
   .legend-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--accent);margin-right:5px;vertical-align:middle}
-  @media(max-width:680px){.controls{width:100%;margin-left:0}input{flex:1;min-width:0}header h1{width:100%}}
+  @media(max-width:680px){.controls{width:100%;margin-left:0}header h1{width:100%}#nearby{width:auto;right:12px}}
 </style>
 </head>
 <body>
@@ -46,12 +71,28 @@
     <h1><span class="ico">⚕</span> Hospitais de referência — soro antipeçonhento</h1>
     <span class="count" id="count">carregando…</span>
     <div class="controls">
+      <div class="city-wrap">
+        <input id="cidade" type="search" placeholder="📍 Digite sua cidade…" autocomplete="off">
+        <div id="sug"></div>
+      </div>
+      <button id="geo" title="Usar minha localização">📡 Perto de mim</button>
       <select id="uf"><option value="">Todos os estados</option></select>
       <select id="soro"><option value="">Todos os soros</option></select>
-      <input id="q" type="search" placeholder="Buscar hospital ou município…">
+      <input id="q" type="search" placeholder="Buscar hospital…">
     </div>
   </header>
-  <div id="map"></div>
+  <div id="map">
+    <div id="nearby">
+      <div class="nb-head">
+        <div>
+          <div class="nb-title" id="nbTitle"></div>
+          <div class="nb-sub" id="nbSub"></div>
+        </div>
+        <button class="nb-close" id="nbClose" title="Fechar">×</button>
+      </div>
+      <div id="nbList"></div>
+    </div>
+  </div>
   <footer>
     <span><span class="legend-dot"></span><b id="fcount">0</b>&nbsp;unidades exibidas</span>
     <span>Fonte: <a href="https://www.gov.br/saude/pt-br/assuntos/saude-de-a-a-z/a/animais-peconhentos/hospitais-de-referencia" target="_blank" rel="noopener">Ministério da Saúde</a> · coordenadas: <a href="https://cnes.datasus.gov.br/" target="_blank" rel="noopener">CNES/DATASUS</a></span>
@@ -65,71 +106,178 @@
 const UFNAME={AC:'Acre',AL:'Alagoas',AP:'Amapá',AM:'Amazonas',BA:'Bahia',CE:'Ceará',DF:'Distrito Federal',ES:'Espírito Santo',GO:'Goiás',MA:'Maranhão',MT:'Mato Grosso',MS:'Mato Grosso do Sul',MG:'Minas Gerais',PA:'Pará',PB:'Paraíba',PR:'Paraná',PE:'Pernambuco',PI:'Piauí',RJ:'Rio de Janeiro',RN:'Rio Grande do Norte',RS:'Rio Grande do Sul',RO:'Rondônia',RR:'Roraima',SC:'Santa Catarina',SP:'São Paulo',SE:'Sergipe',TO:'Tocantins'};
 const titleCase=s=>(s||'').toLowerCase().replace(/(^|[\s\/\-])([a-zà-ú])/g,(m,a,b)=>a+b.toUpperCase());
 const fmtTel=t=>!t?'':t.replace(/\s+/g,' ').trim();
+const noAcc=s=>(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+const toRad=d=>d*Math.PI/180;
+function haversine(a,b,c,d){const R=6371,dla=toRad(c-a),dlo=toRad(d-b);
+  const x=Math.sin(dla/2)**2+Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dlo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));}
+const fmtKm=k=>k<1?Math.round(k*1000)+' m':(k<100?k.toFixed(1):Math.round(k))+' km';
 
 const map=L.map('map',{zoomControl:true,preferCanvas:true}).setView([-14.6,-52],4);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
   attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:19,subdomains:'abcd'}).addTo(map);
-
 const cluster=L.markerClusterGroup({maxClusterRadius:50,chunkedLoading:true,spiderfyOnMaxZoom:true});
 map.addLayer(cluster);
 
-let DATA=[];
+let DATA=[], CIDADES=[], origin=null, originMarker=null, markerByCnes={};
 const qEl=document.getElementById('q'), ufEl=document.getElementById('uf'), soroEl=document.getElementById('soro');
+const cityEl=document.getElementById('cidade'), sugEl=document.getElementById('sug');
+const nbEl=document.getElementById('nearby');
+
+function passesFilter(h){
+  if(ufEl.value && h.uf!==ufEl.value) return false;
+  if(soroEl.value && !(h.antivenenos||[]).includes(soroEl.value)) return false;
+  if(qEl.value.trim()){const q=qEl.value.trim().toLowerCase();
+    if(!((h.nome||'')+' '+(h.municipio||'')).toLowerCase().includes(q)) return false;}
+  return true;
+}
 
 function popup(h){
   const nome=titleCase(h.nome);
   let html=`<div class="pop-name">${nome||'Unidade de saúde'}</div>`;
   html+=`<div class="pop-loc">${titleCase(h.municipio)} — ${h.uf} (${UFNAME[h.uf]||''})</div>`;
+  if(origin){const dk=haversine(origin.lat,origin.lon,h.lat,h.lon);
+    html+=`<div class="pop-dist">📏 ${fmtKm(dk)} de ${origin.name}</div>`;}
   if(h.endereco) html+=`<div class="pop-row"><span class="lbl">Endereço:</span> ${titleCase(h.endereco)}${h.cep?` · CEP ${String(h.cep).replace(/(\d{5})(\d{3})/,'$1-$2')}`:''}</div>`;
   if(h.telefone) html+=`<div class="pop-row"><span class="lbl">Telefone:</span> ${fmtTel(h.telefone)}</div>`;
   if(h.antivenenos&&h.antivenenos.length){
     html+=`<div class="pop-row"><span class="lbl">Soros disponíveis:</span></div><div class="chips">`+
-      h.antivenenos.map(s=>`<span class="chip">${s}</span>`).join('')+`</div>`;
-  }
-  html+=`<div class="pop-row" style="margin-top:8px"><span class="lbl">CNES:</span> <a href="https://cnes.datasus.gov.br/pages/estabelecimentos/ficha/identificacao/${String(h.cnes).padStart(7,'0')}" target="_blank" rel="noopener">${h.cnes}</a></div>`;
+      h.antivenenos.map(s=>`<span class="chip">${s}</span>`).join('')+`</div>`;}
+  html+=`<div class="pop-row" style="margin-top:8px"><span class="lbl">CNES:</span> <a href="https://cnes.datasus.gov.br/pages/estabelecimentos/ficha/identificacao/${String(h.cnes).padStart(7,'0')}" target="_blank" rel="noopener">${h.cnes}</a> · <a href="https://www.google.com/maps/dir/?api=1&destination=${h.lat},${h.lon}" target="_blank" rel="noopener">rota ↗</a></div>`;
   if(h.aprox) html+=`<div class="badge-aprox">📍 localização aproximada (centro do município)</div>`;
   return html;
 }
 
 function render(){
-  const q=qEl.value.trim().toLowerCase(), uf=ufEl.value, soro=soroEl.value;
-  cluster.clearLayers();
+  cluster.clearLayers(); markerByCnes={};
   const ms=[];
   for(const h of DATA){
-    if(uf && h.uf!==uf) continue;
-    if(soro && !(h.antivenenos||[]).includes(soro)) continue;
-    if(q){
-      const hay=((h.nome||'')+' '+(h.municipio||'')).toLowerCase();
-      if(!hay.includes(q)) continue;
-    }
+    if(!passesFilter(h)) continue;
     const m=L.circleMarker([h.lat,h.lon],{radius:6,weight:1.5,
       color:'#1b6b4a',fillColor:h.aprox?'#f0b34d':'#2ec28a',fillOpacity:.9});
     m.bindPopup(()=>popup(h),{maxWidth:300});
-    ms.push(m);
+    markerByCnes[h.cnes]=m; ms.push(m);
   }
   cluster.addLayers(ms);
   document.getElementById('fcount').textContent=ms.length;
+  if(origin) computeNearby();
 }
 
-fetch('hospitais.json').then(r=>r.json()).then(d=>{
-  DATA=d;
-  document.getElementById('count').innerHTML=`<b>${d.length}</b> unidades · ${new Set(d.map(h=>h.uf+h.municipio)).size} municípios · 27 estados`;
-  // populate UF select
-  Object.keys(UFNAME).sort((a,b)=>UFNAME[a].localeCompare(UFNAME[b])).forEach(u=>{
-    const o=document.createElement('option');o.value=u;o.textContent=UFNAME[u]+' ('+u+')';ufEl.appendChild(o);});
-  // populate serum select
-  const sset=new Set(); d.forEach(h=>(h.antivenenos||[]).forEach(s=>sset.add(s)));
-  [...sset].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='Soro '+s;soroEl.appendChild(o);});
-  render();
-}).catch(e=>{document.getElementById('count').textContent='erro ao carregar dados';console.error(e);});
+function openHospital(h){
+  const m=markerByCnes[h.cnes];
+  if(!m){map.setView([h.lat,h.lon],12);return;}
+  cluster.zoomToShowLayer(m,()=>m.openPopup());
+}
 
+function computeNearby(){
+  if(!origin) return;
+  const list=DATA.filter(passesFilter)
+    .map(h=>({h,d:haversine(origin.lat,origin.lon,h.lat,h.lon)}))
+    .sort((a,b)=>a.d-b.d).slice(0,12);
+  document.getElementById('nbTitle').textContent='Mais próximos de '+origin.name;
+  const extra=[ufEl.value?UFNAME[ufEl.value]:null, soroEl.value?('soro '+soroEl.value):null].filter(Boolean).join(' · ');
+  document.getElementById('nbSub').textContent=list.length?('Toque para ver no mapa'+(extra?' · filtro: '+extra:'')):'Nenhuma unidade com os filtros atuais';
+  const box=document.getElementById('nbList'); box.innerHTML='';
+  list.forEach((it,i)=>{
+    const h=it.h, el=document.createElement('div'); el.className='nb-item';
+    el.innerHTML=`<div class="nb-rank">${i+1}</div>
+      <div style="min-width:0;flex:1">
+        <div class="nb-name">${titleCase(h.nome)||'Unidade de saúde'}</div>
+        <div class="nb-loc">${titleCase(h.municipio)} — ${h.uf}</div>
+        ${h.antivenenos&&h.antivenenos.length?`<div class="nb-soros">💉 ${h.antivenenos.join(', ')}</div>`:''}
+      </div>
+      <div class="nb-km">${fmtKm(it.d)}</div>`;
+    el.onclick=()=>openHospital(h);
+    box.appendChild(el);
+  });
+  nbEl.style.display='flex';
+  // enquadra cidade + 5 mais próximos
+  const pts=[[origin.lat,origin.lon],...list.slice(0,5).map(it=>[it.h.lat,it.h.lon])];
+  if(pts.length>1) map.fitBounds(pts,{padding:[60,60],maxZoom:11});
+  else map.setView([origin.lat,origin.lon],11);
+}
+
+function cityPin(lat,lon,label){
+  if(originMarker) map.removeLayer(originMarker);
+  const icon=L.divIcon({className:'city-pin',html:
+    '<svg width="30" height="40" viewBox="0 0 30 40" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C7 0 1 6 1 14c0 9 14 26 14 26s14-17 14-26C29 6 23 0 15 0z" fill="#39a0ed" stroke="#fff" stroke-width="2"/><circle cx="15" cy="14" r="5" fill="#fff"/></svg>',
+    iconSize:[30,40], iconAnchor:[15,40], popupAnchor:[0,-36]});
+  originMarker=L.marker([lat,lon],{icon,zIndexOffset:1000}).addTo(map).bindPopup('<b>📍 '+label+'</b>');
+}
+
+function setOrigin(o){
+  origin=o; cityPin(o.lat,o.lon,o.name); computeNearby();
+}
+
+/* ---------- autocomplete de cidades ---------- */
+let sugIdx=-1, sugItems=[];
+function showSug(){
+  const v=noAcc(cityEl.value.trim());
+  if(v.length<2){sugEl.style.display='none';return;}
+  const starts=[], incl=[];
+  for(const c of CIDADES){const n=noAcc(c.n);
+    if(n.startsWith(v)) starts.push(c);
+    else if(n.includes(v)) incl.push(c);
+    if(starts.length>=8) break;}
+  sugItems=starts.concat(incl).slice(0,8); sugIdx=-1;
+  if(!sugItems.length){sugEl.style.display='none';return;}
+  sugEl.innerHTML=sugItems.map((c,i)=>`<div data-i="${i}">${c.n}<span class="uf">${c.uf}</span></div>`).join('');
+  [...sugEl.children].forEach(el=>el.onclick=()=>pickSug(+el.dataset.i));
+  sugEl.style.display='block';
+}
+function pickSug(i){
+  const c=sugItems[i]; if(!c) return;
+  cityEl.value=c.n+' - '+c.uf; sugEl.style.display='none';
+  setOrigin({name:c.n+' - '+c.uf, lat:c.lat, lon:c.lon});
+}
+cityEl.addEventListener('input',showSug);
+cityEl.addEventListener('keydown',e=>{
+  if(sugEl.style.display==='none') return;
+  if(e.key==='ArrowDown'){e.preventDefault();sugIdx=Math.min(sugIdx+1,sugItems.length-1);}
+  else if(e.key==='ArrowUp'){e.preventDefault();sugIdx=Math.max(sugIdx-1,0);}
+  else if(e.key==='Enter'){e.preventDefault();pickSug(sugIdx<0?0:sugIdx);return;}
+  else return;
+  [...sugEl.children].forEach((el,i)=>el.classList.toggle('active',i===sugIdx));
+});
+document.addEventListener('click',e=>{if(!e.target.closest('.city-wrap'))sugEl.style.display='none';});
+
+document.getElementById('nbClose').onclick=()=>{
+  nbEl.style.display='none'; origin=null; cityEl.value='';
+  if(originMarker){map.removeLayer(originMarker);originMarker=null;}
+  render();
+};
+document.getElementById('geo').onclick=()=>{
+  if(!navigator.geolocation){alert('Geolocalização não suportada neste navegador.');return;}
+  navigator.geolocation.getCurrentPosition(p=>{
+    setOrigin({name:'minha localização', lat:p.coords.latitude, lon:p.coords.longitude});
+  },()=>alert('Não foi possível obter sua localização. Verifique as permissões.'),{enableHighAccuracy:true,timeout:8000});
+};
+
+[ufEl,soroEl].forEach(el=>el.addEventListener('change',render));
 let t; qEl.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(render,180);});
-ufEl.addEventListener('change',()=>{render(); if(ufEl.value){/* zoom handled by fit below */}});
-soroEl.addEventListener('change',render);
-ufEl.addEventListener('change',()=>{
+ufEl.addEventListener('change',()=>{ // mantém comportamento de zoom só quando não há cidade ativa
+  if(origin) return;
   if(ufEl.value){const pts=DATA.filter(h=>h.uf===ufEl.value).map(h=>[h.lat,h.lon]); if(pts.length) map.fitBounds(pts,{padding:[40,40],maxZoom:9});}
   else map.setView([-14.6,-52],4);
 });
+
+Promise.all([
+  fetch('hospitais.json').then(r=>r.json()),
+  fetch('cidades.json').then(r=>r.json())
+]).then(([d,cid])=>{
+  DATA=d; CIDADES=cid;
+  document.getElementById('count').innerHTML=`<b>${d.length}</b> unidades · ${new Set(d.map(h=>h.uf+h.municipio)).size} municípios · 27 estados`;
+  Object.keys(UFNAME).sort((a,b)=>UFNAME[a].localeCompare(UFNAME[b])).forEach(u=>{
+    const o=document.createElement('option');o.value=u;o.textContent=UFNAME[u]+' ('+u+')';ufEl.appendChild(o);});
+  const sset=new Set(); d.forEach(h=>(h.antivenenos||[]).forEach(s=>sset.add(s)));
+  [...sset].sort().forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent='Soro '+s;soroEl.appendChild(o);});
+  render();
+  // deep-link: ?cidade=Nome  (ou Nome-UF)
+  const qp=new URLSearchParams(location.search).get('cidade');
+  if(qp){const v=noAcc(qp.replace(/-/g,' ').trim());
+    let c=CIDADES.find(x=>noAcc(x.n)===v)||CIDADES.find(x=>noAcc(x.n+' '+x.uf)===v)||CIDADES.find(x=>noAcc(x.n).startsWith(v));
+    if(c){cityEl.value=c.n+' - '+c.uf; setOrigin({name:c.n+' - '+c.uf,lat:c.lat,lon:c.lon});}}
+}).catch(e=>{document.getElementById('count').textContent='erro ao carregar dados';console.error(e);});
 </script>
 </body>
 </html>
